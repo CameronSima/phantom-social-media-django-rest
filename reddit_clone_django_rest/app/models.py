@@ -6,6 +6,7 @@ from django.utils.text import slugify
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
 from django.db.models.signals import post_save
+from constants import NOTIFICATION_TYPES
 
 class Account(models.Model):
     created = models.DateTimeField(auto_now_add=True)
@@ -34,6 +35,7 @@ class Sub(models.Model):
     admins = models.ManyToManyField(Account, blank=True, related_name="admin_of")
     created_by = models.ForeignKey(Account, related_name="subs_created", on_delete=models.CASCADE)
     is_default = models.BooleanField(default=False)
+    send_new_post_notifications = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
         self.slug = slugify(self.title)
@@ -51,7 +53,7 @@ class Post(models.Model):
     author = models.ForeignKey(Account, related_name="posts", on_delete=models.CASCADE)
     title = models.CharField(max_length=500, unique=True, blank=False, null=False)
     slug = models.SlugField(max_length=200, blank=True)
-    body_text = models.TextField(blank=True, null=True)
+    body_text = models.TextField(blank=False, null=False)
     body_html = models.TextField(blank=True, null=True)
     link_url = models.URLField(null=True, blank=True)
     link_preview_img = models.ImageField(upload_to='link_previews/', null=True, blank=True)
@@ -95,4 +97,18 @@ class Comment(models.Model):
 def create_auth_token(sender, instance, created, **kwargs):
     if created:
         Token.objects.create(user=instance)
+
+
+class Notification(models.Model):
+    created = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(Account, related_name="notifications", on_delete=models.CASCADE, blank=False)
+    seen = models.BooleanField(default=False)
+    message = models.TextField(blank=False, null=False)
+    link = models.TextField(blank=False, null=False)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, blank=True, null=True)
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, blank=True, null=True)
+    type = models.CharField(choices=NOTIFICATION_TYPES, blank=False, null=False, max_length=30)
+
+
+
 

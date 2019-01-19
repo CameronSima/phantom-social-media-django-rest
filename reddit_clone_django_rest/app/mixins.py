@@ -13,12 +13,12 @@ from markdown2 import Markdown
 markdowner = Markdown()
 
 class MarkdownToHTML(object):
-    def to_markdown(self, text):
-        return markdowner.convert(text)
+    def get_body_html(self, obj):
+        return markdowner.convert(obj.body_text)
 
 class SaveMixin(object):
     @action(detail=True, methods=['get'])
-    def unsave(self, request, pk):
+    def unsave(self, request, slug):
         obj = self.get_object()
         account = self.get_logged_in_user_account()
         if obj is not None or account is not None:
@@ -33,7 +33,7 @@ class SaveMixin(object):
             return Response({'detail', 'could not unsave post.'}, status=status.HTTP_403_FORBIDDEN)
 
     @action(detail=True, methods=['get'])
-    def save(self, request, pk):
+    def save(self, request, slug):
         obj = self.get_object()
         account = self.get_logged_in_user_account()
         if obj is not None or account is not None:
@@ -50,11 +50,11 @@ class SaveMixin(object):
 
 class VoteMixin(object):
     @action(detail=True, methods=['get'])
-    def downvote(self, request, pk):
+    def downvote(self, request, slug):
         return self.vote(upvote=False)
 
     @action(detail=True, methods=['get'])
-    def upvote(self, request, pk):
+    def upvote(self, request, slug):
         return self.vote(upvote=True)
 
     def vote(self, upvote=True):

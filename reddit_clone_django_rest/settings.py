@@ -37,10 +37,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-     'rest_framework',
-     'reddit_clone_django_rest',
-     'corsheaders',
-     'rest_framework.authtoken'
+    'rest_framework',
+    'reddit_clone_django_rest',
+    'corsheaders',
+    'rest_framework.authtoken',
+    'reddit_clone_django_rest.app'
 ]
 
 MIDDLEWARE = [

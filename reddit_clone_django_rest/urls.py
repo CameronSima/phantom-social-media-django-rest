@@ -19,6 +19,7 @@ from django.contrib import admin
 from reddit_clone_django_rest.app import views
 from rest_framework.authtoken import views as authViews
 from reddit_clone_django_rest.app.admin import admin_site
+
 router = routers.DefaultRouter()
 router.register(r'users', views.UserViewSet)
 router.register(r'groups', views.GroupViewSet)
@@ -37,4 +38,5 @@ urlpatterns = [
     url(r'^search/(?P<search_term>[-\w]+)', views.SearchViewSet.as_view()),
     url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     url(r'^admin/', admin_site.urls)
+  #url(r"^posts/(?P<slug>[-\w]+)/$", views.PostViewSet.as_view({'get': 'list'}, lookup_field = 'slug'))
 ]

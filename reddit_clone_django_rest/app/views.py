@@ -48,8 +48,34 @@ class AccountViewSet(viewsets.ModelViewSet):
     search_fields = ('user__username')
 
 class SubViewSet(viewsets.ModelViewSet):
+    permission_classes = (IsAuthenticatedOrReadOnly,)
     queryset = Sub.objects.all().order_by('-created')
     serializer_class = SubSerializer
+    lookup_field = 'slug'
+    slug_field = 'slug'
+
+    @action(detail=True, methods=['update'])
+    def subscribe(self, request, slug):
+        sub = self.get_object()
+        already_subbed = obj.subscribers.get(pk=self.request.user.id).exists()
+
+        if not already_subbed:
+            user_account = Account.objects.get(pk=self.request.user.id)
+            sub.subscribers.add(user_account)
+            sub.save()
+            return Response({'detail', 'user subscribed successfully.'}, status=status.HTTP_202_ACCEPTED)
+        else :
+            return Response({'detail', 'user is already subscribed.'}, status=status.HTTP_403_FORBIDDEN)
+
+
+
+    #TODO move functionality like this to serializers (see UserSerializer.create)
+    def perform_create(self, serializer):
+
+        # Assign the logged-in user as the sub creator, and add as admin.
+        user_account = Account.objects.get(pk=self.request.user.id)
+        serializer.save(created_by = user_account, admins = [user_account])
+
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('-date_joined')
@@ -65,7 +91,9 @@ class PostViewSet(DetailAndListViewSet, VoteMixin, SaveMixin, MarkdownToHTML):
     authentication_classes = (TokenAuthentication,)
     serializer_class = PostSerializer
     detail_serializer_class = PostDetailSerializer
-
+    lookup_field = 'slug'
+    slug_field = 'slug'
+   
     def perform_create(self, serializer):
         
         # Add user's account as the author of the Post.
@@ -74,13 +102,15 @@ class PostViewSet(DetailAndListViewSet, VoteMixin, SaveMixin, MarkdownToHTML):
         # and causing an error.
         posted_in = Sub.objects.get(id=self.request.data['posted_in'])
         account = self.get_logged_in_user_account()
-        body_html = self.to_markdown(self.request.data['body_text'])
+
+        # Commented because html is generated in the serializer.
+        #body_html = self.to_markdown(self.request.data['body_text'])
 
         link_image = None
         if 'link_url' in self.request.data:
             title, description, link_image = web_preview(self.request.data['link_url'])
 
-        serializer.save(upvoted_by=[account], author=account, posted_in=posted_in, body_html=body_html, link_preview_img=link_image)
+        serializer.save(upvoted_by=[account], author=account, posted_in=posted_in, link_preview_img=link_image)
 
 class CommentViewSet(viewsets.ModelViewSet, VoteMixin):
     queryset = Comment.objects.all()
