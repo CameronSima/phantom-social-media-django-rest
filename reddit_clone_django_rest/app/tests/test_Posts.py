@@ -32,8 +32,9 @@ class PostTests(APITestCase):
 
         # create Sub to post in, and fetch from api to get url property
         cls.sub = Sub.objects.create(title="Some New Sub", created_by=cls.account)
-        response = client.get('/subs/' + str(cls.sub.id) + '/')
-        cls.sub_url = json.loads(response.content)['url']
+        url = reverse('sub-detail', kwargs={'slug': cls.sub.slug})
+        response = client.get(url, format='json')
+        cls.sub_url = response.json()['url']
 
 
     def test_create_post(self):
@@ -43,10 +44,13 @@ class PostTests(APITestCase):
 
         url = reverse('post-list')
     
-        data = { 'title': 'A test post', 'body_text': 'some text', 'body_html': 'some html', 'posted_in': self.sub.id}
+        data = { 'title': 'A test post', 'body_text': 'some text', 'posted_in': self.sub.id}
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
         response = client.post(url, data, format='json')
+
+        print "RESPONSE $$$$$$$$$$$$$$$$$$$$$$$$$"
+        print response
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Post.objects.count(), 1)
