@@ -47,10 +47,6 @@ class AccountViewSet(viewsets.ModelViewSet):
     queryset = Account.objects.all().order_by('-created')
     serializer_class = AccountSerializer
 
-    #testing
-    #lookup_field = 'slug'
-    
-
     # allows searching like: http://example.com/api/users?search=russell
     search_fields = ('user__username')
 
