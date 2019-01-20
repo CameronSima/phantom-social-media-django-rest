@@ -47,16 +47,36 @@ class PostTests(APITestCase):
         self.assertEqual(Sub.objects.get().created_by, self.account)
         self.assertTrue(self.account in Sub.objects.get().admins.all())
     
-    # def test_user_can_subscribe(self):
-    #     Sub.objects.create(title="Some New Sub", created_by=self.account)
+    def test_user_can_subscribe(self):
+        Sub.objects.create(title="Some New Sub", created_by=self.account)
 
-    #     client = APIClient()
-    #     client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
-    #     url = reverse('sub-subscribe', kwargs={'slug': Sub.objects.get().slug})
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
+        url = reverse('sub-subscribe', kwargs={'slug': Sub.objects.get().slug})
 
-    #     response = client.put(url, format='json')
-    #     print response
+        response = client.patch(url, format='json')
 
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertEqual(Sub.objects.prefetch_related('subscribers').get().subscribers.count(), 1)
+        self.assertEqual(Account.objects.prefetch_related('subbed_to').get().subbed_to.all().get().title, 'Some New Sub')
+
+
+    def test_user_can_unsubscribe(self):
+        Sub.objects.create(title="Some New Sub", created_by=self.account)
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
+
+        # first subscribe, then unsubscribe
+        url = reverse('sub-subscribe', kwargs={'slug': Sub.objects.get().slug})
+        response = client.patch(url, format='json')
+
+        url = reverse('sub-unsubscribe', kwargs={'slug': Sub.objects.get().slug})
+        response = client.patch(url, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertEqual(Sub.objects.prefetch_related('subscribers').get().subscribers.count(), 0)
+        self.assertEqual(Account.objects.prefetch_related('subbed_to').get().subbed_to.count(), 0)
 
 
     

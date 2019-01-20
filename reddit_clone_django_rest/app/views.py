@@ -11,6 +11,7 @@ from reddit_clone_django_rest.app.serializers import UserSerializer, GroupSerial
 from rest_framework.response import Response
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from reddit_clone_django_rest.app.permissions import IsAuthorOrReadOnly, IsAdminOrReadOnly
 from rest_framework.authtoken.models import Token
 from abc import abstractproperty
 from rest_framework.decorators import action
@@ -45,28 +46,47 @@ class DetailAndListViewSet(viewsets.ModelViewSet):
 class AccountViewSet(viewsets.ModelViewSet):
     queryset = Account.objects.all().order_by('-created')
     serializer_class = AccountSerializer
+
+    #testing
+    #lookup_field = 'slug'
+    
+
+    # allows searching like: http://example.com/api/users?search=russell
     search_fields = ('user__username')
 
 class SubViewSet(viewsets.ModelViewSet):
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
     queryset = Sub.objects.all().order_by('-created')
     serializer_class = SubSerializer
     lookup_field = 'slug'
-    slug_field = 'slug'
+    
 
-    @action(detail=True, methods=['update'])
+    @action(detail=True, methods=['patch'])
+    def unsubscribe(self, request, slug):
+        sub = self.get_object()
+        subbed = sub.subscribers.filter(pk=request.user.id).exists()
+
+        if subbed:
+            user_account = Account.objects.get(pk=request.user.id)
+            sub.subscribers.remove(user_account)
+            sub.save()
+            return Response({'detail', 'user unsubscribed successfully.'}, status=status.HTTP_202_ACCEPTED)
+        else :
+            return Response({'detail', 'user is not currently subscribed.'}, status=status.HTTP_403_FORBIDDEN)
+
+
+    @action(detail=True, methods=['patch'])
     def subscribe(self, request, slug):
         sub = self.get_object()
-        already_subbed = obj.subscribers.get(pk=self.request.user.id).exists()
+        already_subbed = sub.subscribers.filter(pk=request.user.id).exists()
 
         if not already_subbed:
-            user_account = Account.objects.get(pk=self.request.user.id)
+            user_account = Account.objects.get(pk=request.user.id)
             sub.subscribers.add(user_account)
             sub.save()
             return Response({'detail', 'user subscribed successfully.'}, status=status.HTTP_202_ACCEPTED)
         else :
             return Response({'detail', 'user is already subscribed.'}, status=status.HTTP_403_FORBIDDEN)
-
 
 
     #TODO move functionality like this to serializers (see UserSerializer.create)
@@ -87,7 +107,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
 class PostViewSet(DetailAndListViewSet, VoteMixin, SaveMixin, MarkdownToHTML):
     queryset = Post.objects.all().order_by('-created')
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly)
     authentication_classes = (TokenAuthentication,)
     serializer_class = PostSerializer
     detail_serializer_class = PostDetailSerializer
@@ -115,7 +135,7 @@ class PostViewSet(DetailAndListViewSet, VoteMixin, SaveMixin, MarkdownToHTML):
 class CommentViewSet(viewsets.ModelViewSet, VoteMixin):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly)
     authentication_classes = (TokenAuthentication,)
 
     def perform_create(self, serializer):

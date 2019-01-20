@@ -171,9 +171,6 @@ class NotificationTests(APITestCase):
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
         response = client.post(url, data, format='json')
 
-        print "response"
-        print response
-
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Notification.objects.count(), 1)
 

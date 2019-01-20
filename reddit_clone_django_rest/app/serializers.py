@@ -21,6 +21,7 @@ class AccountLimitedInfoSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Account
         fields = ('url', 'username', 'id')
+    
 
 class SubLimitedInfoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -47,8 +48,11 @@ class CommentSerializer(serializers.ModelSerializer, GetScoresMixin, MarkdownToH
 class AccountSerializer(serializers.HyperlinkedModelSerializer):
     subbed_to = SubLimitedInfoSerializer(
         many=True,
-        read_only=True,
-        
+        read_only=True
+    )
+    admin_of = SubLimitedInfoSerializer(
+        many=True,
+        read_only=True
     )
     username = serializers.CharField(source='user.username')
     
@@ -96,7 +100,11 @@ class AccountSerializer(serializers.HyperlinkedModelSerializer):
     )
     class Meta:
         model = Account
-        fields = ('username', 'created', 'id', 'url', 'user', 'subbed_to', 'admin_of', 'comments', 'posts', 'saved_posts', 'saved_comments', 'upvoted_comments', 'downvoted_comments', 'upvoted_posts', 'downvoted_posts')
+        fields = ('username', 'created', 'id', 'url', 'user', 'subbed_to',  'admin_of', 'comments', 'posts', 'saved_posts', 'saved_comments', 'upvoted_comments', 'downvoted_comments', 'upvoted_posts', 'downvoted_posts')
+        # lookup_field = 'slug'
+        # extra_kwargs = {
+        #     'subbed_to': {'lookup_field': 'slug'}
+        # }
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
