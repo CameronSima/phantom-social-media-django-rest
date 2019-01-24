@@ -78,5 +78,29 @@ class PostTests(APITestCase):
         self.assertEqual(Sub.objects.prefetch_related('subscribers').get().subscribers.count(), 0)
         self.assertEqual(Account.objects.prefetch_related('subbed_to').get().subbed_to.count(), 0)
 
+    def test_admin_can_add_another_user_as_admin(self):
+
+        # create sub via api so the creator is added as an admin.
+        url = reverse('sub-list')
+        data = { 'title': 'A New and Awesome Sub'}
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
+        client.post(url, data, format='json')
+
+        new_admin_to_be = User.objects.create(
+            username='joe blow',
+            password='12edq32'
+        )
+
+        sub = Sub.objects.get()
+
+        url = reverse('sub-addadmin', kwargs={'slug': sub.slug})
+        data = {'id': new_admin_to_be.id }
+        response = client.patch(url, data, format='json')
+
+        self.assertEqual(sub.admins.all().count(), 2)
+
+
+
 
     

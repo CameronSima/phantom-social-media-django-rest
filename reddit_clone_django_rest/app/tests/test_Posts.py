@@ -32,6 +32,12 @@ class PostTests(APITestCase):
 
         # create Sub to post in, and fetch from api to get url property
         cls.sub = Sub.objects.create(title="Some New Sub", created_by=cls.account)
+
+        # these are only added automatically when created via the api
+        cls.sub.admins=[cls.account]
+        cls.sub.subscribers=[cls.account]
+        cls.sub.save()
+
         url = reverse('sub-detail', kwargs={'slug': cls.sub.slug})
         response = client.get(url, format='json')
         cls.sub_url = response.json()['url']
@@ -229,3 +235,36 @@ class PostTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertTrue(Post.objects.get().saved_by.filter(pk=self.account.id).exists())
         self.assertEqual(Post.objects.get().saved_by.count(), 1)
+
+    def test_post_is_deleteable(self):
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
+        Post.objects.create(
+            author=self.account,
+            title="Some post",
+            body_text="some text",
+            body_html="Some html",
+            posted_in=self.sub
+        )
+
+        # now we see it...
+        response = client.get('/home', format='json')
+        self.assertEqual(response.data['count'], 1)
+        self.assertTrue(Post.objects.get().is_visible)
+        
+        response = client.get('/subbed_posts', format='json')
+        self.assertEqual(response.data['count'], 1)
+
+        url = reverse('post-delete', kwargs={'slug': Post.objects.get().slug})
+
+        # ...now we don't
+        response = client.patch(url, format='json')
+        self.assertEqual(response.status_code, 202)
+        self.assertFalse(Post.objects.get().is_visible)
+
+        response = client.get('/home', format='json')
+        self.assertEqual(response.data['count'], 0)
+        
+        response = client.get('/subbed_posts', format='json')
+        self.assertEqual(response.data['count'], 0)
+
