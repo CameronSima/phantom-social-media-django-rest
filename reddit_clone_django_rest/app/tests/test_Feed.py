@@ -10,7 +10,7 @@ from reddit_clone_django_rest.app.models import User, Post, Sub, Account, Commen
 from reddit_clone_django_rest.app.serializers import SubSerializer, PostSerializer
 from reddit_clone_django_rest.app.services import notification_service
 import reddit_clone_django_rest.app.constants as constants
-from reddit_clone_django_rest.app.scripts import create_fake_data
+from reddit_clone_django_rest.app.scripts import FakeData
 from reddit_clone_django_rest.app.services.homepage_service import hot
 
 # Helpers
@@ -58,6 +58,9 @@ class NotificationTests(APITestCase):
     @classmethod
     def setUpTestData(cls):
 
+        cls.fakeData = FakeData()
+        cls.fakeData.create_fake_data(2, 10, 20, False)
+
         print "### NOTE: IF ANY TESTS FAIL HERE, ENSURE HOTNESS IS RETURNED FROM THE SERIALIZER"
         client = APIClient()
 
@@ -75,18 +78,8 @@ class NotificationTests(APITestCase):
         response = client.get('/accounts/' + str(cls.account.id) + '/')
         cls.account_url = json.loads(response.content)['url']
 
-    def test_create_fake_data(self):
-        num_users = 1
-        num_subs = 5
-        num_posts_per_sub = 10
-        create_fake_data(1, num_subs, num_posts_per_sub)
-
-        self.assertEqual(Sub.objects.all().count(), num_subs)
-        self.assertEqual(Account.objects.all().count(), num_users + 1)
-        self.assertEqual(Post.objects.all().count(), num_posts_per_sub * num_subs)
-
     def test_front_page_is_sorted_by_hot(self):
-        create_fake_data(1, 10, 15)
+        #self.fakeData.create_fake_data(1, 10, 15)
 
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
@@ -114,7 +107,7 @@ class NotificationTests(APITestCase):
 
     def test_front_page_sorted_by_new(self):
         # cameron = Account.objects.get(user__username='cameron')
-        create_fake_data(1, 10, 15)
+        #self.fakeData.create_fake_data(1, 10, 15)
 
         # for sub in Sub.objects.all():
         #     sub.subscribers.add(cameron)
@@ -144,7 +137,7 @@ class NotificationTests(APITestCase):
         self.assertTrue(all_posts_in_set_are_sorted_by_new(all_results))
 
     def test_front_page_includes_no_private_posts(self):
-        create_fake_data(1, 10, 15)
+        #self.fakeData.create_fake_data(1, 10, 15)
 
         #make some posts private
         posts = Post.objects.all()
@@ -185,7 +178,7 @@ class NotificationTests(APITestCase):
 
 
     def test_front_page_sorted_by_new(self):
-        create_fake_data(1, 10, 15)
+        #self.fakeData.create_fake_data(1, 10, 15)
 
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
@@ -211,7 +204,7 @@ class NotificationTests(APITestCase):
         all_results = posts1 + posts2 + posts3
 
     def test_front_page_sorted_by_best(self):
-        create_fake_data(1, 10, 15)
+        #self.fakeData.create_fake_data(1, 10, 15)
 
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
@@ -240,7 +233,7 @@ class NotificationTests(APITestCase):
 
     def test_user_subbed_posts_are_sorted(self):
         cameron = Account.objects.get(user__username='cameron')
-        create_fake_data(1, 10, 15)
+        #self.fakeData.create_fake_data(1, 10, 15)
 
         for sub in Sub.objects.all():
             sub.subscribers.add(cameron)
@@ -271,7 +264,7 @@ class NotificationTests(APITestCase):
 
     def test_user_subbed_posts_are_correct(self):
         cameron = Account.objects.get(user__username='cameron')
-        create_fake_data(1, 10, 15)
+        #self.fakeData.create_fake_data(1, 10, 15)
 
         for sub in Sub.objects.all():
             sub.subscribers.add(cameron)

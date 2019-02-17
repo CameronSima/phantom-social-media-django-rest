@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 from django.contrib.auth.models import User
 from django.db import models
+from mptt.models import MPTTModel, TreeForeignKey
 from django.utils.text import slugify
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
@@ -11,6 +12,7 @@ from constants import NOTIFICATION_TYPES
 class Account(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+    is_deleted = models.BooleanField(default=False)
 
     @receiver(post_save, sender=User)
     def create_user_account(sender, instance, created, **kwargs):
@@ -62,6 +64,7 @@ class Post(models.Model):
     saved_by = models.ManyToManyField(Account, related_name='saved_posts')
     upvoted_by = models.ManyToManyField(Account, related_name='upvoted_posts', blank=True)
     downvoted_by = models.ManyToManyField(Account, related_name='downvoted_posts', blank=True)
+    is_visible = models.BooleanField(default=True)
 
     def __unicode__(self):
         return self.title + " - " + self.posted_in.title + " - " + self.author.user.username
@@ -73,18 +76,20 @@ class Post(models.Model):
     class Meta:
         ordering = ('created',)
 
-class Comment(models.Model):
+class Comment(MPTTModel):
     confidence = models.IntegerField(default=0, blank=True)
     created = models.DateTimeField(auto_now_add=True)
     author = models.ForeignKey(Account, related_name="comments", on_delete=models.CASCADE, blank=True)
     slug = models.SlugField(max_length=200, blank=True)
     body_text = models.TextField()
     body_html = models.TextField()
-    parent = models.ForeignKey('self', related_name="child", on_delete=models.CASCADE, null=True, blank=True)
+    parent = TreeForeignKey('self', related_name="children", on_delete=models.CASCADE, null=True, blank=True)
     post = models.ForeignKey(Post, related_name="comments", on_delete=models.CASCADE)
     saved_by = models.ManyToManyField(Account, related_name='saved_comments', blank=True)
     upvoted_by = models.ManyToManyField(Account, related_name='upvoted_comments', blank=True)
     downvoted_by = models.ManyToManyField(Account, related_name='downvoted_comments', blank=True)
+    is_visible = models.BooleanField(default=True)
+    is_deleted = models.BooleanField(default=False)
 
     class Meta:
         ordering = ('created',)

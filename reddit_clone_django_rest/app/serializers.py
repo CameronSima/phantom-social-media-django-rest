@@ -11,6 +11,9 @@ class SubInPostDetailSerializer(serializers.HyperlinkedModelSerializer):
         model = Sub
         fields = ('id', 'url', 'created', 'title', 'slug', 'num_subscribers', 'admins', 'created_by')
         lookup_field = 'slug'
+        extra_kwargs = {
+            'url': { 'lookup_field': 'slug' }
+        }
         
     def get_num_subscribers(self, obj):
         return obj.subscribers.count()
@@ -38,14 +41,29 @@ class CommentSerializer(serializers.ModelSerializer, GetScoresMixin, MarkdownToH
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
     user_upvoted = serializers.SerializerMethodField()
     user_downvoted = serializers.SerializerMethodField()
+    user_saved = serializers.SerializerMethodField()
     score = serializers.SerializerMethodField()
     body_html = serializers.SerializerMethodField()
-    
+    body_text = serializers.SerializerMethodField()
+    has_descendants = serializers.SerializerMethodField()
+
+    # If a comment is a leaf node, we can tell client side
+    # if it has unloaded descendants
+    def get_has_descendants(self, comment):
+        return not comment.is_leaf_node()
+
+    def get_body_text(self, comment):
+        if comment.is_deleted:
+            return '- deleted -'
+        return comment.body_text
+            
     class Meta:
         model = Comment
-        fields = ('id', 'url', 'author', 'body_text', 'body_html', 'parent', 'post', 'upvoted_by', 'downvoted_by', 'created', 'score', 'user_upvoted', 'user_downvoted', 'body_html')
+        fields = ('id', 'url', 'user_upvoted', 'user_downvoted', 'user_saved', 'has_descendants', 'author', 'body_text', 'body_html', 'parent', 'post', 'created', 'score', 'body_html')
 
 class AccountSerializer(serializers.HyperlinkedModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+
     subbed_to = SubLimitedInfoSerializer(
         many=True,
         read_only=True
@@ -53,14 +71,12 @@ class AccountSerializer(serializers.HyperlinkedModelSerializer):
     admin_of = SubLimitedInfoSerializer(
         many=True,
         read_only=True
-    )
-    username = serializers.CharField(source='user.username')
-    
-    comments = serializers.HyperlinkedRelatedField(
-        many=True,
-        read_only=True,
-        view_name="comment-detail"
-    )
+    ) 
+    # comments = serializers.HyperlinkedRelatedField(
+    #     many=True,
+    #     read_only=True,
+    #     view_name="comment-detail"
+    # )
     posts = serializers.HyperlinkedRelatedField(
         many=True,
         read_only=True,
@@ -76,48 +92,36 @@ class AccountSerializer(serializers.HyperlinkedModelSerializer):
         read_only=True,
         view_name="comment-detail"
     )
-    upvoted_posts = serializers.HyperlinkedRelatedField(
+    upvoted_posts = serializers.PrimaryKeyRelatedField(
         many=True,
-        read_only=True,
-        view_name="post-detail",
-        lookup_field='slug'
+        read_only=True
     )
-    downvoted_posts = serializers.HyperlinkedRelatedField(
+    downvoted_posts = serializers.PrimaryKeyRelatedField(
         many=True,
-        read_only=True,
-        view_name="post-detail",
-        lookup_field='slug'
+        read_only=True
     )
-    upvoted_comments = serializers.HyperlinkedRelatedField(
+    upvoted_comments = serializers.PrimaryKeyRelatedField(
         many=True,
-        read_only=True,
-        view_name="comment-detail"
+        read_only=True
     )
-    downvoted_comments = serializers.HyperlinkedRelatedField(
+    downvoted_comments = serializers.PrimaryKeyRelatedField(
         many=True,
-        read_only=True,
-        view_name="comment-detail"
+        read_only=True
     )
     class Meta:
         model = Account
-        fields = ('username', 'created', 'id', 'url', 'user', 'subbed_to',  'admin_of', 'comments', 'posts', 'saved_posts', 'saved_comments', 'upvoted_comments', 'downvoted_comments', 'upvoted_posts', 'downvoted_posts')
-        # lookup_field = 'slug'
-        # extra_kwargs = {
-        #     'subbed_to': {'lookup_field': 'slug'}
-        # }
+        fields = ('username', 'created', 'id', 'url', 'user', 'subbed_to',  'admin_of', 'posts', 'saved_posts', 'saved_comments', 'upvoted_comments', 'downvoted_comments', 'upvoted_posts', 'downvoted_posts')
+
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
+    password = serializers.CharField(write_only=True)
     class Meta:
         model = User
-        fields = ('id', 'url', 'username', 'password', 'email', 'groups', 'date_joined')
+        fields = ('id', 'url', 'username', 'password', 'email', 'date_joined')
 
     def create(self, validated_data):
-        password = validated_data.pop('password', None)
-        instance = self.Meta.model(**validated_data)
-        if password is not None:
-            instance.set_password(password)
-        instance.save()
-        return instance
+        user = User.objects.create_user(**validated_data)
+        return user
 
     def update(self, instance, validated_data):
         for attr, value in validated_data.items():
@@ -128,7 +132,6 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
         instance.save()
         return instance
 
-
 class GroupSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Group
@@ -137,16 +140,26 @@ class GroupSerializer(serializers.HyperlinkedModelSerializer):
 class PostSerializer(serializers.HyperlinkedModelSerializer, GetScoresMixin):
     author = AccountLimitedInfoSerializer(read_only=True)
     posted_in = SubLimitedInfoSerializer(read_only=True)
-    num_comments = serializers.SerializerMethodField()
-    user_upvoted = serializers.SerializerMethodField()
-    user_downvoted = serializers.SerializerMethodField()
+    
+    # Annotated method field is much faster than SerializerMethodField()
+    num_comments = serializers.IntegerField()
     score = serializers.SerializerMethodField()
     link_preview_img = serializers.SerializerMethodField()
+    posted_in = SubLimitedInfoSerializer()
+    # user_saved = serializers.SerializerMethodField()
+    # user_upvoted = serializers.SerializerMethodField()
+    # user_downvoted = serializers.SerializerMethodField()
+
+    # These are not needed in production because in the frontpage view and logged-in user view,
+    # the values and sorting are calculated in the view and are not necessary here -- just for
+    # tests to pass.
+    hot = serializers.SerializerMethodField()
+    best_ranking = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
-        read_only_fields = ('body_html', 'url', 'slug', 'upvoted_by', 'downvoted_by', 'created', 'num_comments', 'score')  
-        fields = ('id', 'author', 'title', 'slug', 'body_text', 'body_html', 'link_url', 'link_preview_img', 'image_url', 'posted_in', 'num_comments', 'created', 'score', 'url', 'user_upvoted', 'user_downvoted')
+        read_only_fields = ('body_html', 'url', 'slug', 'posted_in', 'created', 'num_comments', 'score')  
+        fields = ('id', 'author', 'hot', 'best_ranking', 'title', 'slug', 'body_text', 'body_html', 'link_url', 'link_preview_img', 'image_url', 'posted_in', 'num_comments', 'created', 'score', 'url')
         lookup_fild = 'slug'
         extra_kwargs = {
             'url': {'lookup_field': 'slug'}
@@ -156,33 +169,14 @@ class PostSerializer(serializers.HyperlinkedModelSerializer, GetScoresMixin):
         if obj.link_preview_img:
             return obj.link_preview_img.url
 
-class PostDetailSerializer(serializers.ModelSerializer, GetScoresMixin):
-    author = AccountLimitedInfoSerializer(read_only=True)
-    comments = CommentSerializer(many=True, read_only=True)
-    posted_in = SubInPostDetailSerializer()
-    num_comments = serializers.SerializerMethodField()
-    user_upvoted = serializers.SerializerMethodField()
-    user_downvoted = serializers.SerializerMethodField()
-    score = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = Post
-        read_only_fields = ('comments', 'body_html', 'url', 'slug', 'upvoted_by', 'downvoted_by', 'created', 'num_comments', 'score')  
-        fields = ('id', 'author', 'title', 'created', 'body_text', 'comments', 'url', 'link_url', 'image_url', 'posted_in', 'score', 'user_upvoted', 'user_downvoted', 'num_comments')
-        lookup_field = 'slug'
-        extra_kwargs = {
-            'url': {'lookup_field': 'slug'}
-        }
-
 class SubSerializer(serializers.HyperlinkedModelSerializer):
-    posts = PostSerializer(many=True, read_only=True)
     created_by = AccountLimitedInfoSerializer(read_only=True)
     admins = AccountLimitedInfoSerializer(many=True, read_only=True)
-    num_subscribers = serializers.SerializerMethodField()
+    num_subscribers = serializers.IntegerField()
 
     class Meta:
         model = Sub
-        fields = ('id', 'url', 'created', 'title', 'slug', 'num_subscribers', 'admins', 'created_by', 'posts')
+        fields = ('id', 'url', 'created', 'title', 'slug', 'num_subscribers', 'admins', 'created_by')
         lookup_field = 'slug'
         extra_kwargs = {
             'created_by': {'read_only': True, 'required': False},

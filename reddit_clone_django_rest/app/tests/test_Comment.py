@@ -81,6 +81,66 @@ class CommentTests(APITestCase):
         self.assertEqual(len(comments), 1)
         self.assertEqual(comments[0]['body_text'], '- deleted -')
         self.assertEqual(delete_response.status_code, 202)
+        self.assertTrue(Comment.objects.get().is_deleted)
+
+        # comment is also invisible since it doesn't have children
         self.assertFalse(Comment.objects.get().is_visible)
 
-        
+    def test_comment_with_child_is_still_visible_when_deleted(self):
+
+        comment = Comment.objects.create(
+            body_text = 'this is a stupid thing to say!!',
+            author=self.account,
+            post=self.post
+        )
+
+        Comment.objects.create(
+            body_text="Shut up!",
+            author=self.account,
+            post=self.post,
+            parent=comment
+        )
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
+
+        url = reverse('post-detail', kwargs={'slug': self.post.slug})
+
+        # delete the comment
+        url = reverse('comment-delete', kwargs={'pk': comment.id})
+        delete_response = client.patch(url, format='json')
+
+        url = reverse('post-detail', kwargs={'slug': self.post.slug})
+        response = client.get(url, format='json')
+        comments = response.json()['comments']
+
+        self.assertEqual(len(comments), 2)
+        self.assertEqual(comments[0]['body_text'], '- deleted -')
+        self.assertEqual(delete_response.status_code, 202)
+        self.assertTrue(Comment.objects.get(pk=comment.id).is_deleted)
+
+        # comment is visible
+        self.assertTrue(Comment.objects.get(pk=comment.id).is_visible)
+
+
+    def test_cant_reply_to_deleted_comment(self):
+
+        parent_comment = Comment.objects.create(
+            body_text = 'this is a stupid thing to say!!',
+            author=self.account,
+            post=self.post,
+            is_deleted=True
+        )
+
+        data = { 'title': 'A snarky reply', 'parent': parent_comment.id, 'body_text': 'some text',  'post': self.post.id}
+
+        url = reverse('comment-list')
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
+        response = client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, 400)
+
+
+
+  

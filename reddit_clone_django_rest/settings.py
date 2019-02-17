@@ -25,7 +25,18 @@ SECRET_KEY = '(l6xj)%#2d)%3s4gswg32g09l835t1xb-os1c=r+!22q$l0daz'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
+
+DEBUG_TOOLBAR_PANELS = {
+    'debug_toolbar.panels.profiling.ProfilingPanel',
+    'debug_toolbar.panels.timer.TimerPanel',
+    'debug_toolbar.panels.headers.HeadersPanel',
+    'debug_toolbar.panels.request.RequestPanel',
+    'debug_toolbar.panels.sql.SQLPanel',
+    'debug_toolbar.panels.cache.CachePanel',
+    'debug_toolbar.panels.signals.SignalsPanel',
+    'debug_toolbar.panels.logging.LoggingPanel'
+}
 
 
 # Application definition
@@ -37,10 +48,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'debug_toolbar',
     'rest_framework',
     'reddit_clone_django_rest',
     'corsheaders',
     'rest_framework.authtoken',
+    'silk',
+    'mptt',
     'reddit_clone_django_rest.app'
 ]
 
@@ -53,7 +67,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
+    'silk.middleware.SilkyMiddleware',
 ]
 
 ROOT_URLCONF = 'reddit_clone_django_rest.urls'
@@ -128,9 +143,10 @@ STATIC_URL = '/static/'
 
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
+    'PAGE_SIZE': 25,
       'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication'
     ],
 }
 
@@ -142,3 +158,9 @@ CORS_ORIGIN_WHITELIST = (
 CORS_ORIGIN_REGEX_WHITELIST = (
     'localhost:3030',
 )
+
+INTERNAL_IPS = [
+    '127.0.0.1'
+]
+
+SILKY_PYTHON_PROFILER = True

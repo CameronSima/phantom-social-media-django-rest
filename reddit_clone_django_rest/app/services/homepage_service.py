@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from math import log
+from reddit_clone_django_rest.app.services.comment_service import confidence as best
 
 epoch = datetime(1970, 1, 1)
 
@@ -19,4 +20,8 @@ def hot(ups, downs, date):
     return round(sign * order + seconds / 45000, 7)
 
 def sort_posts_by_hot(posts):
-    return sorted(posts, key=lambda x: hot(x.upvoted_by.count(), x.downvoted_by.count(), x.created))
+    return sorted(posts, key=lambda x: hot(x.upvoted_by.count(), x.downvoted_by.count(), x.created), reverse=True)
+
+# Best is the same as the Comments confidence score
+def sort_posts_by_best(posts):
+    return sorted(posts, key=lambda x: best(x.upvoted_by.count(), x.downvoted_by.count()))

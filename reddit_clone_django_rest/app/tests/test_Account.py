@@ -22,3 +22,15 @@ class TestAccount(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()['username'], 'cameron')
         self.assertEqual(Account.objects.get().user.username, 'cameron')
+
+    def test_cant_delete(self):
+        user = User.objects.create(
+            username='cameron',
+            password='324f23f4fef'
+        )
+
+        url = reverse('account-list')
+        client = APIClient()
+
+        response = client.delete(url, {'id': user.id }, format='json')
+        self.assertEqual(response.status_code, 405)
