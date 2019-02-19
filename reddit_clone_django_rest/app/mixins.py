@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 from django.contrib.auth.models import User, Group
 from rest_framework import status, serializers
 
@@ -46,67 +47,44 @@ class SaveMixin(object):
         else:
             return Response({'detail', 'could not save post.'}, status=status.HTTP_403_FORBIDDEN)
 
-
-class VoteMixin(object):
-    @action(detail=True, methods=['get'])
-    def downvote(self, request, slug):
-        return self.vote(upvote=False)
-
-    @action(detail=True, methods=['get'])
-    def upvote(self, request, slug):
-        return self.vote(upvote=True)
-
-    def vote(self, upvote=True):
-        obj = self.get_object()
-        direction = obj.upvoted_by if upvote else obj.downvoted_by
-        opposite_direction = obj.downvoted_by if upvote else obj.upvoted_by
-        account = self.get_logged_in_user_account()
-        direction.remove(account)
-        opposite_direction.remove(account)
-        direction.add(account)
-        return Response({obj.__class__.__name__: obj}, status=status.HTTP_202_ACCEPTED)
-
-    def get_logged_in_user_account(self):
-        return Account.objects.get(id=self.request.user.id)
-
 # ------------------- serializer mixins -------------------------------------------
 
 # A serializer mixin that provides scores, such as hotness and vote tallies,
 # for comments and posts.
-class GetScoresMixin(object):
+# class GetScoresMixin(object):
 
-    def get_best_ranking(self, obj):
-        return confidence(obj.upvoted_by.count(), obj.downvoted_by.count())
+#     def get_best_ranking(self, obj):
+#         return confidence(obj.upvoted_by.count(), obj.downvoted_by.count())
 
-    def get_hot(self, obj):
-        return hot(obj.upvoted_by.count(), obj.downvoted_by.count(), obj.created)
+#     def get_hot(self, obj):
+#         return hot(obj.upvoted_by.count(), obj.downvoted_by.count(), obj.created)
 
-    def get_user_upvoted(self, obj):
-        user = self.context['request'].user
-        if user.is_authenticated():
-            return  obj.upvoted_by.filter(pk=user.id).exists()
-        return False
+#     def get_user_upvoted(self, obj):
+#         user = self.context['request'].user
+#         if user.is_authenticated():
+#             return  obj.upvoted_by.filter(pk=user.id).exists()
+#         return False
 
-    def get_user_saved(self, obj):
-        user = self.context['request'].user
-        if user.is_authenticated():
-            return obj.saved_by.filter(pk=user.id).exists()
-        else:
-            return False
+#     def get_user_saved(self, obj):
+#         user = self.context['request'].user
+#         if user.is_authenticated():
+#             return obj.saved_by.filter(pk=user.id).exists()
+#         else:
+#             return False
         
-    def get_user_downvoted(self, obj):
-        user = self.context['request'].user
-        if user.is_authenticated():
-            #return user.account in obj.downvoted_by.all()
-            return obj.downvoted_by.filter(pk=user.id).exists()
-        else:
-            return False
+#     def get_user_downvoted(self, obj):
+#         user = self.context['request'].user
+#         if user.is_authenticated():
+#             #return user.account in obj.downvoted_by.all()
+#             return obj.downvoted_by.filter(pk=user.id).exists()
+#         else:
+#             return False
 
-    def get_num_comments(self, obj):
-        return obj.comments.count()
+#     def get_num_comments(self, obj):
+#         return obj.comments.count()
 
-    def get_score(self, obj):
-        return obj.upvoted_by.count() - obj.downvoted_by.count()
+#     def get_score(self, obj):
+#         return obj.upvoted_by.count() - obj.downvoted_by.count()
 
 class MarkdownToHTML(object):
     def get_body_html(self, obj):

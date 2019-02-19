@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+from datetime import datetime
 from django.contrib.auth.models import User
 from django.db import models
 from mptt.models import MPTTModel, TreeForeignKey
@@ -7,7 +8,7 @@ from django.utils.text import slugify
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
 from django.db.models.signals import post_save
-from constants import NOTIFICATION_TYPES
+from constants import NOTIFICATION_TYPES, VOTE_TYPES
 
 class Account(models.Model):
     created = models.DateTimeField(auto_now_add=True)
@@ -62,8 +63,8 @@ class Post(models.Model):
     image_url = models.URLField(null=True, blank=True)
     is_private = models.BooleanField(default=False)
     saved_by = models.ManyToManyField(Account, related_name='saved_posts')
-    upvoted_by = models.ManyToManyField(Account, related_name='upvoted_posts', blank=True)
-    downvoted_by = models.ManyToManyField(Account, related_name='downvoted_posts', blank=True)
+    # upvoted_by = models.ManyToManyField(Account, related_name='upvoted_posts', blank=True)
+    # downvoted_by = models.ManyToManyField(Account, related_name='downvoted_posts', blank=True)
     is_visible = models.BooleanField(default=True)
 
     def __unicode__(self):
@@ -85,17 +86,16 @@ class Comment(MPTTModel):
     body_html = models.TextField()
     parent = TreeForeignKey('self', related_name="children", on_delete=models.CASCADE, null=True, blank=True)
     post = models.ForeignKey(Post, related_name="comments", on_delete=models.CASCADE)
-    saved_by = models.ManyToManyField(Account, related_name='saved_comments', blank=True)
-    upvoted_by = models.ManyToManyField(Account, related_name='upvoted_comments', blank=True)
-    downvoted_by = models.ManyToManyField(Account, related_name='downvoted_comments', blank=True)
     is_visible = models.BooleanField(default=True)
     is_deleted = models.BooleanField(default=False)
+    saved_by = models.ManyToManyField(Account, related_name='saved_comments')
 
     class Meta:
         ordering = ('created',)
 
     def __unicode__(self):
         return str(self.id)
+
 
 # Create auth tokens for new accounts
 @receiver(post_save, sender=User)
@@ -114,6 +114,14 @@ class Notification(models.Model):
     comment = models.ForeignKey(Comment, on_delete=models.CASCADE, blank=True, null=True)
     type = models.CharField(choices=NOTIFICATION_TYPES, blank=False, null=False, max_length=30)
 
+class Vote(models.Model):
+    created = models.DateTimeField(auto_now_add=True)
+    date_placed = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(Account, related_name="votes", on_delete=models.CASCADE, blank=False)
+    direction = models.IntegerField(choices=VOTE_TYPES, default=0)
+    post = models.ForeignKey(Post, related_name="votes", on_delete=models.CASCADE, blank=True, null=True)
+    comment = models.ForeignKey(Comment, related_name="votes", on_delete=models.CASCADE, blank=True, null=True)
 
-
-
+    def save(self, *args, **kwargs):
+        self.date_placed = datetime.now()
+        super(Vote, self).save(*args, **kwargs)

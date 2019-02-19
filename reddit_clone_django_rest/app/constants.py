@@ -12,5 +12,12 @@ NOTIFICATION_TYPES = (
     (USER_POSTED_IN_SUB, 'user_posted_in_sub')
 )
 
-# Custom http actions
+UP = 1
+DOWN = -1
+NONE = 0
 
+VOTE_TYPES = (
+    (UP, 1),
+    (DOWN, -1),
+    (NONE, 0)
+)

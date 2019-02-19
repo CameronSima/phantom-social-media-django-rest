@@ -28,6 +28,7 @@ router.register(r'posts', views.PostViewSet, base_name='post')
 router.register(r'comments', views.CommentViewSet, base_name='comment')
 router.register(r'subs', views.SubViewSet)
 router.register(r'accounts', views.AccountViewSet)
+router.register(r'votes', views.VoteViewSet)
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.

@@ -1,12 +1,13 @@
 from reddit_clone_django_rest.app.models import Post
-from django.db.models import Count
+from django.db.models import Count, Sum, When, Case, IntegerField
+from reddit_clone_django_rest.app import constants
 
 # -----  querysets -----------------------------
 
 def get_post_queryset():
     return Post.objects.select_related('posted_in') \
-                .prefetch_related('downvoted_by', 'upvoted_by') \
                 .select_related('author', 'author__user') \
+                .prefetch_related('votes') \
                 .annotate(num_comments=Count('comments')) \
                 .filter(is_visible=True) 
 

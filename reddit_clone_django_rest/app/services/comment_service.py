@@ -1,5 +1,6 @@
 from math import sqrt
 from reddit_clone_django_rest.app.models import Comment, Post
+from django.db.models import Sum
 
 def _confidence(ups, downs):
     n = ups + downs
@@ -39,7 +40,7 @@ def get_queryset():
     return Comment.objects.select_related('post') \
                               .select_related('author', 'author__user') \
                               .select_related('parent') \
-                              .prefetch_related('upvoted_by', 'downvoted_by') \
+                              .annotate(score=Sum('votes__direction')) \
                               .filter(is_visible=True) \
                               .filter(level__lte=2)
 
@@ -48,4 +49,4 @@ def get_comments_for_post_queryset(post_slug):
 
 def get_comment_descendants(comment_id):
     parent = Comment.objects.get(pk=comment_id)
-    return parent.get_descendants(include_self=False)
+    return parent.get_descendants(include_self=False).annotate(score=Sum('votes__direction')) 

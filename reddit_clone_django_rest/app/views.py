@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from django.contrib.auth.models import User, Group
 from django.db.models import Count
-from reddit_clone_django_rest.app.models import Post, Comment, Sub, Account
+from reddit_clone_django_rest.app.models import Post, Comment, Sub, Account, Vote
 from reddit_clone_django_rest.app.services.homepage_service import sort_posts_by_hot, sort_posts_by_best
 from reddit_clone_django_rest.app.services import comment_service, post_service, sub_service
 from reddit_clone_django_rest.app.pagination import CommentPagination
@@ -9,7 +9,7 @@ from rest_framework import viewsets, generics, serializers, status
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.decorators import detail_route
 from rest_framework.views import APIView
-from reddit_clone_django_rest.app.serializers import UserSerializer, GroupSerializer, PostSerializer, CommentSerializer, SubSerializer, AccountSerializer
+from reddit_clone_django_rest.app.serializers import VoteSerializer, UserSerializer, GroupSerializer, PostSerializer, CommentSerializer, SubSerializer, AccountSerializer
 from rest_framework.response import Response
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
@@ -18,7 +18,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.pagination import PageNumberPagination
 from abc import abstractproperty
 from rest_framework.decorators import action, api_view
-from reddit_clone_django_rest.app.mixins import VoteMixin, SaveMixin, MarkdownToHTML
+from reddit_clone_django_rest.app.mixins import SaveMixin, MarkdownToHTML
 from webpreview import web_preview
 
 from silk.profiling.profiler import silk_profile
@@ -44,10 +44,6 @@ class AccountViewSet(viewsets.ModelViewSet):
                               .prefetch_related('posts') \
                               .prefetch_related('saved_posts') \
                               .prefetch_related('saved_comments') \
-                              .prefetch_related('upvoted_posts') \
-                              .prefetch_related('downvoted_posts') \
-                              .prefetch_related('upvoted_comments') \
-                              .prefetch_related('downvoted_comments') \
                               .all().order_by('-created')
     serializer_class = AccountSerializer
 
@@ -121,7 +117,7 @@ class GroupViewSet(viewsets.ModelViewSet):
     serializer_class = GroupSerializer
 
 # @silk_profile(name="Post View Set")
-class PostViewSet(viewsets.ModelViewSet, VoteMixin, SaveMixin, MarkdownToHTML):
+class PostViewSet(viewsets.ModelViewSet, SaveMixin, MarkdownToHTML):
     permission_classes = (IsAuthorOrReadOnly,)
     authentication_classes = (TokenAuthentication,)
     serializer_class = PostSerializer
@@ -195,7 +191,7 @@ class PostViewSet(viewsets.ModelViewSet, VoteMixin, SaveMixin, MarkdownToHTML):
 
         serializer.save(upvoted_by=[account], author=account, posted_in=posted_in, link_preview_img=link_image)
 
-class CommentViewSet(viewsets.ModelViewSet, VoteMixin):                        
+class CommentViewSet(viewsets.ModelViewSet):                        
     serializer_class = CommentSerializer
     pagination_class = CommentPagination
     permission_classes = (IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly)
@@ -303,8 +299,9 @@ class CustomObtainAuthToken(ObtainAuthToken):
             'account': None
         }, status.HTTP_400_BAD_REQUEST)
 
-      
-
-
+class VoteViewSet(viewsets.ModelViewSet):
+    serializer_class = VoteSerializer
+    permission_classes = (IsAuthenticatedOrReadOnly,)
+    queryset = Vote.objects.all().order_by('-created')
         
 
