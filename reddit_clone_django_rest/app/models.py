@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
+from __future__ import unicode_literals, absolute_import
 from datetime import datetime
 from django.contrib.auth.models import User
 from django.db import models
@@ -8,7 +8,7 @@ from django.utils.text import slugify
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
 from django.db.models.signals import post_save
-from constants import NOTIFICATION_TYPES, VOTE_TYPES
+from reddit_clone_django_rest.app.constants import NOTIFICATION_TYPES, VOTE_TYPES
 
 class Account(models.Model):
     created = models.DateTimeField(auto_now_add=True)
@@ -63,14 +63,19 @@ class Post(models.Model):
     image_url = models.URLField(null=True, blank=True)
     is_private = models.BooleanField(default=False)
     saved_by = models.ManyToManyField(Account, related_name='saved_posts')
-    # upvoted_by = models.ManyToManyField(Account, related_name='upvoted_posts', blank=True)
-    # downvoted_by = models.ManyToManyField(Account, related_name='downvoted_posts', blank=True)
     is_visible = models.BooleanField(default=True)
+
+    scores_last_generated = models.DateTimeField(auto_now_add=True)
+    score = models.IntegerField(default=0)
+    hot = models.DecimalField(default=0.0, max_digits=10, decimal_places=2)
+    controversy = models.DecimalField(default=0.0, max_digits=10, decimal_places=2)
+    confidence = models.DecimalField(default=0.0, max_digits=10, decimal_places=2)
 
     def __unicode__(self):
         return self.title + " - " + self.posted_in.title + " - " + self.author.user.username
 
     def save(self, *args, **kwargs):
+        print kwargs
         self.slug = slugify(self.title)
         super(Post, self).save(*args, **kwargs)
 
@@ -89,6 +94,12 @@ class Comment(MPTTModel):
     is_visible = models.BooleanField(default=True)
     is_deleted = models.BooleanField(default=False)
     saved_by = models.ManyToManyField(Account, related_name='saved_comments')
+
+    scores_last_generated = models.DateTimeField(auto_now_add=True)
+    score = models.IntegerField(default=0)
+    hot = models.DecimalField(default=0.0, max_digits=10, decimal_places=2)
+    controversy = models.DecimalField(default=0.0, max_digits=10, decimal_places=2)
+    confidence = models.DecimalField(default=0.0, max_digits=10, decimal_places=2)
 
     class Meta:
         ordering = ('created',)

@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 from django.contrib.auth.models import User, Group
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers
 from django.db.models import Count
+from reddit_clone_django_rest.app import constants
 from reddit_clone_django_rest.app.models import Post, Comment, Sub, Account, Vote
-from reddit_clone_django_rest.app.services.homepage_service import sort_posts_by_hot, sort_posts_by_best
-from reddit_clone_django_rest.app.services import comment_service, post_service, sub_service
+from reddit_clone_django_rest.app.services import comment_service, post_service, sub_service, vote_service, homepage_service
 from reddit_clone_django_rest.app.pagination import CommentPagination
 from rest_framework import viewsets, generics, serializers, status
 from rest_framework.authtoken.views import ObtainAuthToken
@@ -11,17 +14,17 @@ from rest_framework.decorators import detail_route
 from rest_framework.views import APIView
 from reddit_clone_django_rest.app.serializers import VoteSerializer, UserSerializer, GroupSerializer, PostSerializer, CommentSerializer, SubSerializer, AccountSerializer
 from rest_framework.response import Response
-from rest_framework.authentication import TokenAuthentication
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from reddit_clone_django_rest.app.permissions import IsAuthorOrReadOnly, IsAdminOrReadOnly
 from rest_framework.authtoken.models import Token
 from rest_framework.pagination import PageNumberPagination
 from abc import abstractproperty
 from rest_framework.decorators import action, api_view
-from reddit_clone_django_rest.app.mixins import SaveMixin, MarkdownToHTML
+from reddit_clone_django_rest.app.mixins import SaveMixin, MarkdownToHTML, SortableMixin
 from webpreview import web_preview
 
-from silk.profiling.profiler import silk_profile
+
 
 from reddit_clone_django_rest.app.services.create_test_data import TestDataCreator
 
@@ -116,30 +119,20 @@ class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all().order_by('-id')
     serializer_class = GroupSerializer
 
-# @silk_profile(name="Post View Set")
-class PostViewSet(viewsets.ModelViewSet, SaveMixin, MarkdownToHTML):
+
+class PostViewSet(viewsets.ModelViewSet, SaveMixin, MarkdownToHTML, SortableMixin):
     permission_classes = (IsAuthorOrReadOnly,)
-    authentication_classes = (TokenAuthentication,)
+    authentication_classes = (TokenAuthentication, SessionAuthentication)
     serializer_class = PostSerializer
-    #detail_serializer_class = PostDetailSerializer
     lookup_field = 'slug'
     slug_field = 'slug'
 
-    def sort_queryset(self, queryset):
-        sort = self.request.query_params.get('sort', None)
 
-        if sort is None:
-            sort = 'new'
-        
-        if sort == 'hot':
-            return sort_posts_by_hot(queryset)
-        
-        if sort == 'best':
-            return sort_posts_by_best(queryset)
-
-        if sort == 'new':
-            return queryset.order_by('-created')  
-
+    # cache all endpoints
+    @vary_on_headers('Authorization')
+    @method_decorator(cache_page(10))
+    def dispatch(self, *args, **kwargs):
+        return super(PostViewSet, self).dispatch(*args, **kwargs)
 
     # posts/user_personal_feed
     @action(detail=False, methods=['get'])
@@ -164,7 +157,7 @@ class PostViewSet(viewsets.ModelViewSet, SaveMixin, MarkdownToHTML):
             queryset = self.get_posts_for_sub(sub_id)
         else:
             queryset = post_service.get_post_queryset()
-        return self.sort_queryset(queryset)
+        return queryset
 
     @action(detail=True, methods=['patch'])
     def delete(self, request, slug):
@@ -189,24 +182,34 @@ class PostViewSet(viewsets.ModelViewSet, SaveMixin, MarkdownToHTML):
         if 'link_url' in self.request.data:
             title, description, link_image = web_preview(self.request.data['link_url'])
 
-        serializer.save(upvoted_by=[account], author=account, posted_in=posted_in, link_preview_img=link_image)
+        post = serializer.save(
+            author=account, 
+            posted_in=posted_in, 
+            link_preview_img=link_image
+        )
+        vote_service.create_default_vote(account, {'post': post})
 
-class CommentViewSet(viewsets.ModelViewSet):                        
+class CommentViewSet(viewsets.ModelViewSet, SortableMixin):                        
     serializer_class = CommentSerializer
     pagination_class = CommentPagination
-    permission_classes = (IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly)
+    permission_classes = (IsAuthorOrReadOnly,)
     authentication_classes = (TokenAuthentication,)
+
+    @method_decorator(cache_page(10))
+    def dispatch(self, *args, **kwargs):
+        return super(CommentViewSet, self).dispatch(*args, **kwargs)
 
     def get_queryset(self):
         post_slug = self.request.query_params.get('post_slug', None)
         descendants_for = self.request.query_params.get('descendants_for', None)
 
         if self.action == 'list' and post_slug is not None:
-            return comment_service.get_comments_for_post_queryset(post_slug)
+            queryset = comment_service.get_comments_for_post_queryset(post_slug)
         elif self.action == 'list' and descendants_for is not None:
-            return comment_service.get_comment_descendants(descendants_for)
+            queryset = comment_service.get_comment_descendants(descendants_for)
         else:
-            return comment_service.get_queryset()
+            queryset = comment_service.get_queryset()
+        return queryset
 
 
     @action(detail=False, methods=['get'])
@@ -246,14 +249,15 @@ class CommentViewSet(viewsets.ModelViewSet):
             elif parent.is_deleted:
                 raise serializers.ValidationError("Parent comment has been deleted.")
 
-        account = self.get_logged_in_user_account()
-        serializer.save(
-            upvoted_by=[account], 
+        account = Account.objects.get(pk=self.request.user.id)
+        comment = serializer.save( 
             author=account,
             body_text=body_text,
             parent=parent,
             **serializer.validated_data
             )
+
+        vote_service.create_default_vote(account, {'comment': comment})
 
 class SearchViewSet(APIView):
     """
@@ -302,6 +306,6 @@ class CustomObtainAuthToken(ObtainAuthToken):
 class VoteViewSet(viewsets.ModelViewSet):
     serializer_class = VoteSerializer
     permission_classes = (IsAuthenticatedOrReadOnly,)
-    queryset = Vote.objects.all().order_by('-created')
+    queryset = Vote.objects.exclude(direction=constants.NONE).order_by('-created')
         
 

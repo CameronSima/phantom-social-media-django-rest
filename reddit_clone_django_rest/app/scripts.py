@@ -16,16 +16,16 @@ class FakeData(object):
                 password = '123d32' + str(i)
             )
 
-            #print "Created user: " + user.username
+            print "Created user: " + user.username
     
         for i in range(num_subs):
-            user_account = Account.objects.get(pk=randint(1, num_users))
+            user_account = Account.objects.get(pk=randint(1, num_users-1))
             sub = Sub.objects.create(
                 title = fake.sentence(),
                 created_by = user_account
             )
 
-            #print "Created sub: " + sub.title
+            print "Created sub: " + sub.title
 
             for i in range(num_posts_per_sub):
                 post = Post.objects.create(
@@ -35,20 +35,20 @@ class FakeData(object):
                     posted_in = sub
                 )
 
-                #print "Created post: " + post.title + " in sub: " + sub.title
+                print "Created post: " + post.title + " in sub: " + sub.title
 
                 # create top-level comments
                 num_top_level_comments = randint(5, 20)
                 for i in range(num_top_level_comments):
                     parent_comment = Comment.objects.create(
                         body_text=fake.sentence(),
-                        author=Account.objects.get(pk=randint(1, num_users)),
+                        author=Account.objects.get(pk=randint(1, num_users-1)),
                         post=post
                     )
 
-                    #print "(" + str(i) + "/" + str(num_top_level_comments) + ")"  " created top-level comment " + str(parent_comment.id) + " for post: " + post.title
+                    print "(" + str(i) + "/" + str(num_top_level_comments) + ")"  " created top-level comment " + str(parent_comment.id) + " for post: " + post.title
 
-                    depth = randint(1, 10)
+                    depth = randint(1, 5)
 
                     if should_create_comments:
                         self.create_comments(depth, parent_comment, post)
@@ -60,7 +60,7 @@ class FakeData(object):
         for i in range(depth):
             comment = Comment.objects.create(
                 body_text=fake.sentence(),
-                author=Account.objects.get(pk=randint(1, self.num_users)),
+                author=Account.objects.get(pk=randint(1, self.num_users-1)),
                 post=post,
                 parent=parent_comment
             )

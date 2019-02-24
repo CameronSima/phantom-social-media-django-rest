@@ -1,15 +1,19 @@
 from datetime import datetime, timedelta
 from math import log
 from reddit_clone_django_rest.app.services.comment_service import confidence as best
+from reddit_clone_django_rest.app import models
 
 epoch = datetime(1970, 1, 1)
+
 
 def epoch_seconds(date):
     td = date - epoch
     return td.days * 86400 + td.seconds + (float(td.microseconds) / 1000000)
 
+
 def score(ups, downs):
     return ups - downs
+
 
 def hot(ups, downs, date):
     date = date.replace(tzinfo=None)
@@ -19,9 +23,12 @@ def hot(ups, downs, date):
     seconds = epoch_seconds(date) - 1134028003
     return round(sign * order + seconds / 45000, 7)
 
-def sort_posts_by_hot(posts):
-    return sorted(posts, key=lambda x: hot(x.upvoted_by.count(), x.downvoted_by.count(), x.created), reverse=True)
 
-# Best is the same as the Comments confidence score
-def sort_posts_by_best(posts):
-    return sorted(posts, key=lambda x: best(x.upvoted_by.count(), x.downvoted_by.count()))
+def controversy(ups, downs):
+    if downs <= 0 or ups <= 0:
+        return 0
+
+    magnitude = ups + downs
+    balance = float(downs) / ups if ups > downs else float(ups) / downs
+    return magnitude ** balance
+

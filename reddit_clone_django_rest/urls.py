@@ -37,9 +37,8 @@ urlpatterns = [
     url(r'^api-token-auth/', views.CustomObtainAuthToken.as_view()),
     url(r'home', views.PostViewSet.as_view({'get': 'list'})),
     url(r'^search/(?P<search_term>[-\w]+)', views.SearchViewSet.as_view()),
-    url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    url(r'^api-auth/', include('rest_framework.urls')),
     url(r'^admin/', admin_site.urls),
-    url(r'^silk/', include('silk.urls', namespace='silk')),
   #url(r"^posts/(?P<slug>[-\w]+)/$", views.PostViewSet.as_view({'get': 'list'}, lookup_field = 'slug'))
 ]
 

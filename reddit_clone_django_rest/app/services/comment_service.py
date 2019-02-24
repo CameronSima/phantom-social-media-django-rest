@@ -40,7 +40,7 @@ def get_queryset():
     return Comment.objects.select_related('post') \
                               .select_related('author', 'author__user') \
                               .select_related('parent') \
-                              .annotate(score=Sum('votes__direction')) \
+                              .prefetch_related('votes') \
                               .filter(is_visible=True) \
                               .filter(level__lte=2)
 
@@ -49,4 +49,4 @@ def get_comments_for_post_queryset(post_slug):
 
 def get_comment_descendants(comment_id):
     parent = Comment.objects.get(pk=comment_id)
-    return parent.get_descendants(include_self=False).annotate(score=Sum('votes__direction')) 
+    return parent.get_descendants(include_self=False) 

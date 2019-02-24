@@ -10,5 +10,5 @@ class AappConfig(AppConfig):
     def ready(self):
         import reddit_clone_django_rest.app.signals
         # from reddit_clone_django_rest.app.scripts import FakeData
-        # FakeData().create_fake_data(2, 5, 10, True)
+        # FakeData().create_fake_data(5000, 100, 50, True)
         

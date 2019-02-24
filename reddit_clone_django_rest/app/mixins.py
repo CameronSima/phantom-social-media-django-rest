@@ -16,6 +16,36 @@ markdowner = Markdown()
 
 # --------------- vieset mixins -----------------------------------------
 
+
+class SortableMixin(object):
+    default_sort = 'new'
+
+    def get_queryset(self):
+        queryset = super(SortableMixin, self).get_queryset()
+        return self.sort_queryset(queryset)
+
+    def sort_queryset(self, queryset):
+        sort = self.request.query_params.get('sort', None)
+
+        if sort is None:
+            sort = self.default_sort
+
+        if sort == 'top':
+            return queryset.order_by('-score')
+
+        if sort == 'hot':
+            return queryset.order_by('-hot')
+
+        if sort == 'best' or sort == 'confidence':
+            return queryset.order_by('-confidence')
+
+        if sort == 'controversial':
+            return queryset.order_by('-controversy')
+
+        if sort == 'new':
+            return queryset.order_by('-created')
+
+
 class SaveMixin(object):
     @action(detail=True, methods=['get'])
     def unsave(self, request, slug):
@@ -51,40 +81,7 @@ class SaveMixin(object):
 
 # A serializer mixin that provides scores, such as hotness and vote tallies,
 # for comments and posts.
-# class GetScoresMixin(object):
 
-#     def get_best_ranking(self, obj):
-#         return confidence(obj.upvoted_by.count(), obj.downvoted_by.count())
-
-#     def get_hot(self, obj):
-#         return hot(obj.upvoted_by.count(), obj.downvoted_by.count(), obj.created)
-
-#     def get_user_upvoted(self, obj):
-#         user = self.context['request'].user
-#         if user.is_authenticated():
-#             return  obj.upvoted_by.filter(pk=user.id).exists()
-#         return False
-
-#     def get_user_saved(self, obj):
-#         user = self.context['request'].user
-#         if user.is_authenticated():
-#             return obj.saved_by.filter(pk=user.id).exists()
-#         else:
-#             return False
-        
-#     def get_user_downvoted(self, obj):
-#         user = self.context['request'].user
-#         if user.is_authenticated():
-#             #return user.account in obj.downvoted_by.all()
-#             return obj.downvoted_by.filter(pk=user.id).exists()
-#         else:
-#             return False
-
-#     def get_num_comments(self, obj):
-#         return obj.comments.count()
-
-#     def get_score(self, obj):
-#         return obj.upvoted_by.count() - obj.downvoted_by.count()
 
 class MarkdownToHTML(object):
     def get_body_html(self, obj):

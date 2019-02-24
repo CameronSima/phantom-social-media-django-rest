@@ -53,8 +53,8 @@ INSTALLED_APPS = [
     'reddit_clone_django_rest',
     'corsheaders',
     'rest_framework.authtoken',
-    'silk',
     'mptt',
+    'django_celery_beat',
     'reddit_clone_django_rest.app'
 ]
 
@@ -68,7 +68,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
-    'silk.middleware.SilkyMiddleware',
 ]
 
 ROOT_URLCONF = 'reddit_clone_django_rest.urls'
@@ -144,11 +143,29 @@ STATIC_URL = '/static/'
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 25,
-      'DEFAULT_AUTHENTICATION_CLASSES': [
+      'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication'
-    ],
+        'rest_framework.authentication.SessionAuthentication',
+      ),
 }
+
+CACHES = {
+    'default': {
+        'BACKEND': 'redis_cache.RedisCache',
+        'LOCATION': 'localhost:6379',
+    },
+}
+
+# Celery
+
+CELERY_BROKER_URL = 'redis://localhost:6379'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'America/New_York'
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
 
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
@@ -162,5 +179,3 @@ CORS_ORIGIN_REGEX_WHITELIST = (
 INTERNAL_IPS = [
     '127.0.0.1'
 ]
-
-SILKY_PYTHON_PROFILER = True

@@ -7,7 +7,6 @@ from reddit_clone_django_rest.app import constants
 def get_post_queryset():
     return Post.objects.select_related('posted_in') \
                 .select_related('author', 'author__user') \
-                .prefetch_related('votes') \
                 .annotate(num_comments=Count('comments')) \
                 .filter(is_visible=True) 
 
@@ -18,4 +17,4 @@ def get_posts_for_user_queryset(user_id):
     return get_post_queryset().filter(posted_in__subscribers=user_id)
                    
 
-
+ 
