@@ -4,7 +4,7 @@ from rest_framework import permissions
 class IsAuthorOrReadOnly(permissions.BasePermission):
 
     def has_object_permission(self, request, view, obj):
-        if request.method in permissions.SAFE_METHODS:
+        if view.action == 'vote' or request.method in permissions.SAFE_METHODS:
             return True
 
         return obj.author.user == request.user
@@ -21,7 +21,6 @@ class IsAdminOrReadOnly(permissions.BasePermission):
             if view.action == 'subscribe' or view.action == 'unsubscribe':
                 return True
             
-            #if request.user.id in obj.admins.all():
             if obj.admins.filter(pk=request.user.id).exists():
                 return True
                 

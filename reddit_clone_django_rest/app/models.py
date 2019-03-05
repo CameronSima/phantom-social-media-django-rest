@@ -75,7 +75,6 @@ class Post(models.Model):
         return self.title + " - " + self.posted_in.title + " - " + self.author.user.username
 
     def save(self, *args, **kwargs):
-        print kwargs
         self.slug = slugify(self.title)
         super(Post, self).save(*args, **kwargs)
 
@@ -136,3 +135,20 @@ class Vote(models.Model):
     def save(self, *args, **kwargs):
         self.date_placed = datetime.now()
         super(Vote, self).save(*args, **kwargs)
+
+    def get_model(self):
+        if self.post is not None:
+            return 'post'
+        elif self.comment is not None:
+            return 'comment'
+
+    def get_model_id(self):
+        if self.post is not None:
+            return self.post
+        elif self.comment is not None:
+            return self.comment
+
+    def get_cache_key(self):
+        return '{}-{}-user-{}'.format(
+            self.get_model(), self.get_model_id(), self.user
+        )

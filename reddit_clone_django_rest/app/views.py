@@ -21,7 +21,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.pagination import PageNumberPagination
 from abc import abstractproperty
 from rest_framework.decorators import action, api_view
-from reddit_clone_django_rest.app.mixins import SaveMixin, MarkdownToHTML, SortableMixin
+from reddit_clone_django_rest.app.mixins import SaveMixin, VotableMixin, MarkdownToHTML, SortableMixin
 from webpreview import web_preview
 
 
@@ -120,7 +120,7 @@ class GroupViewSet(viewsets.ModelViewSet):
     serializer_class = GroupSerializer
 
 
-class PostViewSet(viewsets.ModelViewSet, SaveMixin, MarkdownToHTML, SortableMixin):
+class PostViewSet(viewsets.ModelViewSet, SaveMixin, VotableMixin, MarkdownToHTML, SortableMixin):
     permission_classes = (IsAuthorOrReadOnly,)
     authentication_classes = (TokenAuthentication, SessionAuthentication)
     serializer_class = PostSerializer
@@ -139,9 +139,11 @@ class PostViewSet(viewsets.ModelViewSet, SaveMixin, MarkdownToHTML, SortableMixi
     def get_user_personal_feed(self):
         user = self.request.user
 
-        if user is None:
-            raise Request('Must be logged in to perform this action.', status.HTTP_403_FORBIDDEN)
-        return post_service.get_posts_for_user_queryset(user.id)
+        if user.is_authenticated():
+            return post_service.get_posts_for_user_queryset(user.id)
+            
+        raise Request('Must be logged in to perform this action.', status.HTTP_403_FORBIDDEN)
+        
 
 
     def get_posts_for_sub(self, sub_id):
@@ -151,12 +153,13 @@ class PostViewSet(viewsets.ModelViewSet, SaveMixin, MarkdownToHTML, SortableMixi
 
     # serves both main public feed and a sub list (/posts/?sub_id=123)
     def get_queryset(self):
+        user = self.request.user
         sub_id = self.request.query_params.get('sub_id', None)
 
         if self.action == 'list' and sub_id is not None:
-            queryset = self.get_posts_for_sub(sub_id)
+            queryset = self.get_posts_for_sub(user, sub_id)
         else:
-            queryset = post_service.get_post_queryset()
+            queryset = post_service.get_post_queryset(user)
         return queryset
 
     @action(detail=True, methods=['patch'])
@@ -200,15 +203,16 @@ class CommentViewSet(viewsets.ModelViewSet, SortableMixin):
         return super(CommentViewSet, self).dispatch(*args, **kwargs)
 
     def get_queryset(self):
+        user = self.request.user
         post_slug = self.request.query_params.get('post_slug', None)
         descendants_for = self.request.query_params.get('descendants_for', None)
 
         if self.action == 'list' and post_slug is not None:
-            queryset = comment_service.get_comments_for_post_queryset(post_slug)
+            queryset = comment_service.get_comments_for_post_queryset(user, post_slug)
         elif self.action == 'list' and descendants_for is not None:
-            queryset = comment_service.get_comment_descendants(descendants_for)
+            queryset = comment_service.get_comment_descendants(user, descendants_for)
         else:
-            queryset = comment_service.get_queryset()
+            queryset = comment_service.get_queryset(user)
         return queryset
 
 

@@ -20,11 +20,4 @@ from .tasks import update_scores
 
 @app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
-    print 'setting up periodic tasks'
     sender.add_periodic_task(30.0, update_scores.s())
-
-
-
-@task()
-def test(arg):
-    print(arg)

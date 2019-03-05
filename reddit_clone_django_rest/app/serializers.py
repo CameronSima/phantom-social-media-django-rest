@@ -5,6 +5,7 @@ from rest_framework import serializers
 from reddit_clone_django_rest.app.mixins import MarkdownToHTML
 from reddit_clone_django_rest.app import constants
 
+
 def cache_computed_value_for_user(model_key, user_action_key):
     def decorator(function):
         def wrapper(self, instance):
@@ -13,8 +14,10 @@ def cache_computed_value_for_user(model_key, user_action_key):
                 return function(self, instance)
 
             user_id = self.context['request'].user.id
+
             cache_key = '{}-{}-user-{}-{}'.format(
-                model_key, instance.id, user_action_key, user_id)
+                model_key, instance.id, user_id, user_action_key)
+                
             result = cache.get(cache_key, None)
 
             if result is None:
@@ -24,8 +27,6 @@ def cache_computed_value_for_user(model_key, user_action_key):
             return result
         return wrapper
     return decorator
-
-
 
 class SubInPostDetailSerializer(serializers.HyperlinkedModelSerializer):
     num_subscribers = serializers.SerializerMethodField()
@@ -64,9 +65,8 @@ class SubLimitedInfoSerializer(serializers.ModelSerializer):
 class CommentSerializer(serializers.ModelSerializer, MarkdownToHTML):
     author = AccountLimitedInfoSerializer(read_only=True)
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
-    # user_upvoted = serializers.SerializerMethodField()
-    # user_downvoted = serializers.SerializerMethodField()
-    user_saved = serializers.SerializerMethodField()
+    user_saved = serializers.BooleanField()
+    user_vote = serializers.IntegerField()
 
     body_html = serializers.SerializerMethodField()
     body_text = serializers.SerializerMethodField()
@@ -82,18 +82,10 @@ class CommentSerializer(serializers.ModelSerializer, MarkdownToHTML):
             return '- deleted -'
         return comment.body_text
 
-
-    @cache_computed_value_for_user('comment', 'saved')
-    def get_user_saved(self, comment):
-        user = self.context['request'].user
-        if user.is_authenticated():
-            account = Account.objects.get(pk=user.id)
-            return account.saved_comments.filter(pk=comment.id).exists()
-
     class Meta:
         model = Comment
-        fields = ('id', 'url', 'user_saved', 'has_descendants', 'author', 'body_text', 'body_html',
-                  'parent', 'post', 'created', 'score', 'hot', 'controversy', 'confidence', 'body_html')
+        fields = ('id', 'url', 'user_saved', 'user_vote', 'has_descendants', 'body_text', 'post_id',
+                  'author', 'parent',  'created', 'score', 'hot', 'controversy', 'confidence', 'body_html')
 
 
 class AccountSerializer(serializers.HyperlinkedModelSerializer):
@@ -161,8 +153,8 @@ class PostSerializer(serializers.HyperlinkedModelSerializer):
     num_comments = serializers.IntegerField(read_only=True)
     link_preview_img = serializers.SerializerMethodField()
     posted_in = SubLimitedInfoSerializer()
-    user_saved = serializers.SerializerMethodField()
-    user_vote = serializers.SerializerMethodField()
+    user_vote = serializers.IntegerField()
+    user_saved = serializers.BooleanField()
 
     class Meta:
         model = Post
@@ -175,26 +167,9 @@ class PostSerializer(serializers.HyperlinkedModelSerializer):
             'url': {'lookup_field': 'slug'}
         }
 
-    @cache_computed_value_for_user('post', 'saved')
-    def get_user_saved(self, post):
-        if self.context['request'].user.is_authenticated():
-            return post.saved_by.filter(pk=self.context['request'].user.id).exists()
-        return False
-
-    @cache_computed_value_for_user('post', 'vote')
-    def get_user_vote(self, post):
-
-        if self.context['request'].user.is_authenticated():
-            user_id = self.context['request'].user.id
-            vote = post.votes.filter(pk=user_id)
-            if vote.exists():
-                return vote.direction
-        return constants.NONE
-
     def get_link_preview_img(self, obj):
         if obj.link_preview_img:
             return obj.link_preview_img.url
-
 
 class SubSerializer(serializers.HyperlinkedModelSerializer):
     created_by = AccountLimitedInfoSerializer(read_only=True)
@@ -214,48 +189,8 @@ class SubSerializer(serializers.HyperlinkedModelSerializer):
     def get_num_subscribers(self, obj):
         return obj.subscribers.count()
 
-
 class VoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vote
         fields = ('created', 'user', 'post', 'comment', 'direction')
         read_only_fields = ('user', '')
-
-    def create(self, validated_data):
-
-        post_id = validated_data.get('post', None)
-        comment_id = validated_data.get('comment', None)
-        direction = validated_data.get('direction', None)
-
-        if not post_id and not comment_id:
-            raise Response('Must supply a Post id or Comment id to vote on')
-
-        if post_id and comment_id:
-            raise Response('Cannot vote on both a comment and a post.')
-
-        if post_id:
-            params = {'post': post_id}
-        else:
-            params = {'comment': comment_id}
-
-        # check if user already voted
-        existing_vote = Vote.objects.filter(
-            user=self.context['request'].user.id, **params)
-
-        if existing_vote.exists():
-            existing_vote = existing_vote[0]
-            if direction == existing_vote.direction:
-                existing_vote.direction = constants.NONE
-            else:
-                existing_vote.direction = direction
-            existing_vote.save()
-            return existing_vote
-
-        else:
-            account = Account.objects.get(pk=self.context['request'].user.id)
-            new_vote = Vote.objects.create(
-                user=account,
-                direction=direction,
-                **params
-            )
-            return new_vote
