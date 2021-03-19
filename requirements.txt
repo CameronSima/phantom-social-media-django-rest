@@ -17,7 +17,7 @@ django-mptt==0.9.1
 django-redis-cache==2.0.0
 django-silk==3.0.1
 django-timezone-field==3.0
-djangorestframework==3.9.0
+djangorestframework==3.11.2
 enum34==1.1.6
 factory-boy==2.11.1
 Faker==1.0.1
