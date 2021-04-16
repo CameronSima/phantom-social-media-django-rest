@@ -11,7 +11,7 @@ configparser==3.5.0
 Django==1.11.16
 django-celery-beat==1.4.0
 django-cors-headers==2.4.0
-django-debug-toolbar==1.11
+django-debug-toolbar==1.11.1
 django-js-asset==1.2.1
 django-mptt==0.9.1
 django-redis-cache==2.0.0
